@@ -61,8 +61,6 @@ export const PackagingRunWizard: React.FC<PackagingRunWizardProps> = ({
   initialWeightUnit = 'g',
   onExecuteRun,
 }) => {
-  if (!isOpen) return null;
-
   // Filter available batches with remaining weight
   const availableBatches = batches.filter((b) => b.remainingWeightKg > 0);
 
@@ -285,6 +283,8 @@ export const PackagingRunWizard: React.FC<PackagingRunWizardProps> = ({
     onExecuteRun(newRun, newLot);
     onClose();
   };
+
+  if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 bg-stone-900/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 z-50">

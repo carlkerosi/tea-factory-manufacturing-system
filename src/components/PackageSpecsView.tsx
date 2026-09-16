@@ -4,7 +4,6 @@ import {
   Plus,
   Package,
   Layers,
-  Sparkles,
   ArrowRight,
   ShieldCheck,
   CheckCircle2,

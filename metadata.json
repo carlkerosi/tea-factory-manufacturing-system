@@ -1,5 +1,5 @@
 {
-  "name": "Tea Packaging & Bulk Inventory System",
+  "name": "Tea Packaging and Bulk Inventory System",
   "description": "Comprehensive tea manufacturing and packaging inventory system for Kisii Highlands Tea Processors in Kisii, Kenya. Tracks bulk tea intake from Gusii highland estates, packaging materials (BOM), custom pack weights (50g to kg), packer accountability, and dispatch.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]

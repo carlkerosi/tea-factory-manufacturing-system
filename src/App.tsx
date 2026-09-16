@@ -3,15 +3,26 @@ import { Navbar } from './components/Navbar';
 import { DashboardView } from './components/DashboardView';
 import { BulkTeaView } from './components/BulkTeaView';
 import { MaterialsView } from './components/MaterialsView';
-import { ResearchGuideView } from './components/ResearchGuideView';
 import { PackageSpecsView } from './components/PackageSpecsView';
 import { PackagingRunsView } from './components/PackagingRunsView';
 import { FinishedGoodsView } from './components/FinishedGoodsView';
 import { DispatchView } from './components/DispatchView';
 import { SuppliersCustomersView } from './components/SuppliersCustomersView';
+import { DatabaseSchemaView } from './components/DatabaseSchemaView';
 import { PackagingRunWizard } from './components/PackagingRunWizard';
 import { LotLabelModal } from './components/LotLabelModal';
 import { loadStoredData, saveStoredData, resetStoredData } from './utils/storage';
+import {
+  isSupabaseConfigured,
+  fetchAllFromSupabase,
+  SUPABASE_PROJECT_ID,
+  saveApiConfigToSupabase,
+  syncBatchToSupabase,
+  syncMaterialToSupabase,
+  syncMaterialStockToSupabase,
+  syncSpecToSupabase,
+  syncRunToSupabase,
+} from './lib/supabase';
 import {
   BulkTeaBatch,
   PackingMaterial,
@@ -57,6 +68,36 @@ export default function App() {
     saveStoredData(data);
   }, [data]);
 
+  // Attempt to load from Supabase if configured on startup, and store API configs in Supabase
+  useEffect(() => {
+    if (isSupabaseConfigured()) {
+      // 1. Store API configurations directly in Supabase cloud (not local system)
+      saveApiConfigToSupabase(
+        'gemini_api_key',
+        'CONFIGURED_VIA_ENV',
+        'Google Gemini AI Service'
+      );
+      saveApiConfigToSupabase(
+        'app_url',
+        'https://ais-dev-fdqrw4sxhc3ygbmveatgp3-448542184449.europe-west2.run.app',
+        'Kisii Highlands Cloud Run Endpoint'
+      );
+      saveApiConfigToSupabase(
+        'factory_code',
+        'KISII-KEBS-2026-HQ',
+        'Kisii Highlands Tea Processors Registration Code'
+      );
+
+      // 2. Fetch live data from Supabase
+      fetchAllFromSupabase().then((remoteData) => {
+        if (remoteData) {
+          setData(remoteData);
+          showToast(`Synced live data & APIs from Supabase cloud (${SUPABASE_PROJECT_ID}).`, 'success');
+        }
+      });
+    }
+  }, []);
+
   // Handler: Add Bulk Tea Batch
   const handleAddBatch = (
     batchInput: Omit<BulkTeaBatch, 'id' | 'remainingWeightKg' | 'status'>
@@ -73,6 +114,9 @@ export default function App() {
       teaBatches: [newBatch, ...prev.teaBatches],
     }));
 
+    // Persist directly to Supabase cloud
+    syncBatchToSupabase(newBatch);
+
     showToast(`Bulk Tea Batch #${newBatch.batchNumber} (${newBatch.grade}) received: ${newBatch.initialWeightKg} kg.`);
   };
 
@@ -88,11 +132,17 @@ export default function App() {
       materials: [newMaterial, ...prev.materials],
     }));
 
+    // Persist directly to Supabase cloud
+    syncMaterialToSupabase(newMaterial);
+
     showToast(`Packaging material "${newMaterial.name}" added to inventory.`);
   };
 
   // Handler: Receive Material Stock Restock
   const handleReceiveStock = (materialId: string, additionalQuantity: number) => {
+    const mat = data.materials.find((m) => m.id === materialId);
+    const newQty = (mat?.stockQuantity || 0) + additionalQuantity;
+
     setData((prev) => ({
       ...prev,
       materials: prev.materials.map((m) =>
@@ -102,7 +152,9 @@ export default function App() {
       ),
     }));
 
-    const mat = data.materials.find((m) => m.id === materialId);
+    // Persist stock adjustment directly to Supabase cloud
+    syncMaterialStockToSupabase(materialId, newQty);
+
     showToast(`Restocked ${additionalQuantity} units of ${mat?.name || 'material'}.`);
   };
 
@@ -117,6 +169,9 @@ export default function App() {
       ...prev,
       packageSpecs: [...prev.packageSpecs, newSpec],
     }));
+
+    // Persist spec to Supabase cloud
+    syncSpecToSupabase(newSpec);
 
     showToast(`Package size specification "${newSpec.productName}" (${newSpec.netWeightG}g) registered.`);
   };
@@ -139,6 +194,11 @@ export default function App() {
       id: lotId,
       runId: runId,
     };
+
+    const targetBatch = data.teaBatches.find((b) => b.id === newRun.teaBatchId);
+    const updatedRemainingKg = targetBatch
+      ? Math.max(0, targetBatch.remainingWeightKg - newRun.teaActualUsedKg)
+      : undefined;
 
     setData((prev) => {
       // 1. Deduct raw tea from BulkTeaBatch
@@ -175,6 +235,9 @@ export default function App() {
         finishedGoods: [newLot, ...prev.finishedGoods],
       };
     });
+
+    // Persist execution and mass balance to Supabase cloud
+    syncRunToSupabase(newRun, newLot, updatedRemainingKg);
 
     showToast(
       `Packaging Run #${newRun.runNumber} completed! Packaged ${newRun.actualUnitsProduced} × ${newRun.netWeightG}g units. Lot #${newLot.lotNumber} created.`,
@@ -339,14 +402,6 @@ export default function App() {
             suppliers={data.suppliers}
             onAddMaterial={handleAddMaterial}
             onReceiveStock={handleReceiveStock}
-            onNavigateToResearch={() => setCurrentTab('research-guide')}
-          />
-        )}
-
-        {currentTab === 'research-guide' && (
-          <ResearchGuideView
-            onAdoptMaterial={handleAddMaterial}
-            onNavigateToSpecs={() => setCurrentTab('specs')}
           />
         )}
 
@@ -400,31 +455,43 @@ export default function App() {
             onAddCustomer={handleAddCustomer}
           />
         )}
+
+        {currentTab === 'supabase' && (
+          <DatabaseSchemaView
+            data={data}
+            onSyncData={(newData) => setData(newData)}
+            showToast={showToast}
+          />
+        )}
       </main>
 
       {/* Production Run Wizard Modal */}
-      <PackagingRunWizard
-        isOpen={isRunWizardOpen}
-        onClose={() => setIsRunWizardOpen(false)}
-        batches={data.teaBatches}
-        specs={data.packageSpecs}
-        materials={data.materials}
-        initialBatchId={wizardBatchId}
-        initialSpecId={wizardSpecId}
-        initialUnits={wizardUnits}
-        initialWeightValue={wizardWeightValue}
-        initialWeightUnit={wizardWeightUnit}
-        onExecuteRun={handleExecuteRun}
-      />
+      {isRunWizardOpen && (
+        <PackagingRunWizard
+          isOpen={isRunWizardOpen}
+          onClose={() => setIsRunWizardOpen(false)}
+          batches={data.teaBatches}
+          specs={data.packageSpecs}
+          materials={data.materials}
+          initialBatchId={wizardBatchId}
+          initialSpecId={wizardSpecId}
+          initialUnits={wizardUnits}
+          initialWeightValue={wizardWeightValue}
+          initialWeightUnit={wizardWeightUnit}
+          onExecuteRun={handleExecuteRun}
+        />
+      )}
 
       {/* Printable Packaging Label Modal */}
-      <LotLabelModal
-        isOpen={!!printLotNumber}
-        onClose={() => setPrintLotNumber(null)}
-        lot={lotForPrint}
-        batch={batchForPrint}
-        spec={specForPrint}
-      />
+      {Boolean(printLotNumber && lotForPrint) && (
+        <LotLabelModal
+          isOpen={!!printLotNumber}
+          onClose={() => setPrintLotNumber(null)}
+          lot={lotForPrint}
+          batch={batchForPrint}
+          spec={specForPrint}
+        />
+      )}
 
       {/* Footer */}
       <footer className="border-t border-stone-200 bg-white py-4 text-center text-xs text-stone-500">

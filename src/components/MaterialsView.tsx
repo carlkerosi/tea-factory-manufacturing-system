@@ -21,7 +21,6 @@ interface MaterialsViewProps {
   suppliers: Supplier[];
   onAddMaterial: (mat: Omit<PackingMaterial, 'id'>) => void;
   onReceiveStock: (materialId: string, additionalQuantity: number) => void;
-  onNavigateToResearch: () => void;
 }
 
 export const MaterialsView: React.FC<MaterialsViewProps> = ({
@@ -29,7 +28,6 @@ export const MaterialsView: React.FC<MaterialsViewProps> = ({
   suppliers,
   onAddMaterial,
   onReceiveStock,
-  onNavigateToResearch,
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
@@ -133,13 +131,6 @@ export const MaterialsView: React.FC<MaterialsViewProps> = ({
 
         <div className="flex items-center gap-2">
           <button
-            onClick={onNavigateToResearch}
-            className="flex items-center gap-1.5 bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-300 font-medium text-xs px-3 py-2 rounded-md shadow-xs transition-colors cursor-pointer"
-          >
-            <BookOpen className="w-4 h-4 text-amber-700" />
-            <span>Materials Research Guide</span>
-          </button>
-          <button
             onClick={() => setIsAddModalOpen(true)}
             className="flex items-center gap-1.5 bg-emerald-700 hover:bg-emerald-800 text-white font-medium text-xs px-3.5 py-2 rounded-md shadow-xs transition-colors cursor-pointer"
           >
@@ -225,20 +216,20 @@ export const MaterialsView: React.FC<MaterialsViewProps> = ({
         </div>
 
         {/* Total Valuation Card in KSh */}
-        <div className="p-3.5 rounded-lg border bg-stone-900 text-stone-100 shadow-xs">
-          <div className="flex items-center justify-between text-xs text-stone-400 mb-1">
-            <span className="font-medium flex items-center gap-1.5 text-stone-300">
-              <Coins className="w-4 h-4 text-amber-400" />
+        <div className="p-3.5 rounded-lg border bg-white border-stone-200 shadow-xs">
+          <div className="flex items-center justify-between text-xs text-stone-500 mb-1">
+            <span className="font-medium flex items-center gap-1.5 text-stone-900">
+              <Coins className="w-4 h-4 text-emerald-700" />
               Packing Materials Valuation
             </span>
-            <span className="px-1.5 py-0.5 rounded bg-emerald-400/20 text-emerald-300 font-mono text-[10px] font-semibold">
+            <span className="px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-800 font-mono text-[10px] font-semibold">
               KSh Denominated
             </span>
           </div>
-          <div className="text-xl font-bold font-mono text-white">
+          <div className="text-xl font-bold font-mono text-stone-900">
             KSh {totalValuationKSh.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
           </div>
-          <div className="text-[11px] text-stone-400 mt-1">
+          <div className="text-[11px] text-stone-500 mt-1">
             Calculated across {materials.length} material lines
           </div>
         </div>
